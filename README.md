@@ -1,1 +1,0 @@
-# stripe-payments-pro
