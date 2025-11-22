@@ -1,0 +1,24 @@
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model StripeEvent {
+  id        String   @id
+  type      String
+  payload   String   // ← antes era Json
+  createdAt DateTime @default(now())
+}
+
+model Order {
+  id        String   @id @default(cuid())
+  amount    Int
+  currency  String
+  status    String
+  stripePaymentIntentId String @unique
+  createdAt DateTime @default(now())
+}
