@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { supabaseBrowser } from "@/lib/supabaseClient";
 
 type MeResponse = {
@@ -66,6 +67,9 @@ export default function Home() {
   const [authPass, setAuthPass] = useState("");
   const [modeAuth, setModeAuth] = useState<"login" | "signup">("login");
   const [showPlans, setShowPlans] = useState(false);
+  const [authMessage, setAuthMessage] = useState<string | null>(null);
+  const [authError, setAuthError] = useState<string | null>(null);
+  const sp = useSearchParams();
 
   useEffect(() => {
     supabaseBrowser.auth.getSession().then(({ data }) => {
@@ -97,10 +101,21 @@ export default function Home() {
     void run();
   }, [sessionEmail]);
 
+  useEffect(() => {
+    if (!sessionEmail) return;
+    const success = sp?.get("success");
+    if (success === "1") {
+      void fetchAccess(sessionEmail);
+    }
+  }, [sessionEmail, sp]);
+
   const hasAccess = useMemo(
     () => info?.hasLifetimeAccess || info?.hasActiveSubscription,
     [info]
   );
+  const successFlag = sp?.get("success") === "1";
+  const effectiveAccess = hasAccess || successFlag;
+  const activeSub = info?.subscriptions?.[0];
 
   async function fetchAccess(email: string) {
     const res = await fetch(`/api/me?email=${encodeURIComponent(email)}`);
@@ -111,18 +126,28 @@ export default function Home() {
 
   async function signup(email: string, password: string) {
     setAuthLoading(true);
+    setAuthError(null);
+    setAuthMessage(null);
     const { error } = await supabaseBrowser.auth.signUp({ email, password });
-    if (error) alert(error.message);
+    if (error) {
+      setAuthError("No pudimos crear tu cuenta. Revisa correo/contraseña e inténtalo de nuevo.");
+    } else {
+      setAuthMessage("Cuenta creada. Revisa tu correo para confirmar el acceso.");
+    }
     setAuthLoading(false);
   }
 
   async function login(email: string, password: string) {
     setAuthLoading(true);
+    setAuthError(null);
+    setAuthMessage(null);
     const { error } = await supabaseBrowser.auth.signInWithPassword({
       email,
       password,
     });
-    if (error) alert(error.message);
+    if (error) {
+      setAuthError("No pudimos iniciar sesión. Verifica tus credenciales.");
+    }
     setAuthLoading(false);
   }
 
@@ -183,10 +208,10 @@ export default function Home() {
 
   const visibleGallery = gallery.map((item, i) => ({
     ...item,
-    locked: hasAccess ? false : item.locked,
+    locked: effectiveAccess ? false : item.locked,
     idx: i,
   }));
-  const proGallery = hasAccess
+  const proGallery = effectiveAccess
     ? Array.from({ length: 30 }, (_, i) => {
         if (i < proExtras.length) {
           return { ...proExtras[i], locked: false, idx: i };
@@ -227,11 +252,11 @@ export default function Home() {
                   }
                   setShowPlans(true);
                 }}
-                className="rounded-full bg-gradient-to-r from-cyan-500 to-indigo-500 px-4 py-2 font-semibold text-slate-950 shadow-sm transition hover:from-cyan-400 hover:to-indigo-400 disabled:opacity-60"
-                disabled={!!loading}
-              >
-                Upgrade a Pro
-              </button>
+              className="rounded-full bg-gradient-to-r from-cyan-500 to-indigo-500 px-4 py-2 font-semibold text-slate-950 shadow-sm transition hover:from-cyan-400 hover:to-indigo-400 disabled:opacity-60"
+              disabled={!!loading}
+            >
+              Upgrade a Pro
+            </button>
             )}
             {loggedIn ? (
               <>
@@ -326,6 +351,18 @@ export default function Home() {
                   {modeAuth === "login" ? "Registrarme" : "Tengo cuenta"}
                 </button>
               </div>
+
+              {(authMessage || authError) && (
+                <div
+                  className={`rounded-2xl border px-4 py-3 text-xs ${
+                    authError
+                      ? "border-rose-500/50 bg-rose-500/10 text-rose-100"
+                      : "border-emerald-500/40 bg-emerald-500/10 text-emerald-100"
+                  }`}
+                >
+                  {authError ?? authMessage}
+                </div>
+              )}
             </div>
 
             <div className="mt-6 grid gap-3 sm:grid-cols-3">
@@ -352,15 +389,15 @@ export default function Home() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-semibold text-slate-100">
-                    {hasAccess ? "Feed completo" : "Preview limitada"}
+                    {effectiveAccess ? "Feed completo" : "Preview limitada"}
                   </p>
                   <p className="text-xs text-slate-400">
-                    {hasAccess
+                    {effectiveAccess
                       ? "Disfruta todo el arte y subidas."
                       : "Algunos items se mantienen bloqueados hasta que pases a Pro."}
                   </p>
                 </div>
-                {!hasAccess && (
+                {!effectiveAccess && (
                   <button
                     onClick={() => setShowPlans(true)}
                     className="rounded-full bg-rose-500 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-rose-400"
@@ -368,7 +405,7 @@ export default function Home() {
                     Ver planes
                   </button>
                 )}
-                {hasAccess && (
+                {effectiveAccess && (
                   <span className="rounded-full bg-emerald-500/10 px-3 py-1 text-[11px] font-semibold text-emerald-300">
                     Pro activado
                   </span>
@@ -376,7 +413,7 @@ export default function Home() {
               </div>
 
               <div className="mt-4 grid gap-3 sm:grid-cols-2 md:grid-cols-3">
-                {(hasAccess ? proGallery : visibleGallery).map((item) => (
+                {(effectiveAccess ? proGallery : visibleGallery).map((item) => (
                   <div
                     key={item.title + item.idx}
                     className="group relative overflow-hidden rounded-2xl border border-slate-800 bg-slate-950/70 shadow-md shadow-black/30"
@@ -387,7 +424,7 @@ export default function Home() {
                       className="h-56 w-full object-cover transition duration-300 group-hover:scale-[1.02]"
                       loading="lazy"
                     />
-                    {!hasAccess && item.locked && (
+                    {!effectiveAccess && item.locked && (
                       <div className="absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-black/70 via-black/30 to-transparent p-3">
                         <p className="text-sm font-semibold text-white">
                           {item.title}
@@ -400,7 +437,7 @@ export default function Home() {
                         </button>
                       </div>
                     )}
-                    {hasAccess && (
+                    {effectiveAccess && (
                       <div className="absolute bottom-2 left-2 rounded-full bg-slate-900/80 px-2 py-1 text-[11px] text-slate-100">
                         {item.title}
                       </div>
@@ -410,7 +447,7 @@ export default function Home() {
               </div>
 
               <div className="mt-4 flex flex-wrap items-center gap-2">
-                {hasAccess ? (
+                {effectiveAccess ? (
                   <>
                     <span className="rounded-full bg-emerald-500/10 px-3 py-1 text-[11px] font-semibold text-emerald-300">
                       Acceso Pro activo
@@ -478,7 +515,7 @@ export default function Home() {
           </div>
 
           <div id="plans" className="w-full space-y-4 lg:w-80">
-            {hasAccess ? (
+            {effectiveAccess ? (
               <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4 shadow-lg shadow-black/30">
                 <p className="text-sm font-semibold text-emerald-200">
                   Pro activo
@@ -486,6 +523,11 @@ export default function Home() {
                 <p className="mt-1 text-xs text-emerald-100">
                   Tu cuenta ya tiene acceso completo. Disfruta todo el contenido y futuras funciones.
                 </p>
+                {activeSub && (
+                  <p className="mt-1 text-[11px] text-emerald-100">
+                    Vigente hasta: {new Date(activeSub.current_period_end).toLocaleDateString()}
+                  </p>
+                )}
               </div>
             ) : (
               <>

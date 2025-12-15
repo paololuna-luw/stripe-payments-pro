@@ -123,8 +123,9 @@ export async function POST(req: Request) {
       return NextResponse.json({ received: true });
     }
 
-    const currentPeriodEnd = sub.current_period_end
-      ? new Date(sub.current_period_end * 1000).toISOString()
+    const rawCurrent = (sub as any).current_period_end as number | undefined;
+    const currentPeriodEnd = rawCurrent
+      ? new Date(rawCurrent * 1000).toISOString()
       : new Date().toISOString();
 
     const status =
