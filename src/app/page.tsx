@@ -492,7 +492,7 @@ export default function Home() {
                       </span>
                     ) : (
                       <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-3 py-1 text-[11px] font-semibold text-amber-300">
-                        Bloqueado
+                        Temporal
                       </span>
                     )}
                     {info.hasLifetimeAccess && (

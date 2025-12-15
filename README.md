@@ -1,236 +1,82 @@
+# ArtBoard Pro (Next.js + Stripe + Supabase)
 
+MVP de pagos y suscripciones con Stripe Checkout, webhooks seguros y control de acceso sobre Supabase. Incluye landing con contenido bloqueado, planes de pago (lifetime y mensual) y dashboard de estado.
 
-# Stripe Payments Pro (Next.js + Stripe + Prisma)
+## Caracteristicas
+- Checkout Stripe para pago unico y suscripcion mensual.
+- Webhooks que sincronizan users, orders y subscriptions en Supabase.
+- Control de acceso: lifetime por compra unica, suscripcion activa por estado y current_period_end.
+- UI de ejemplo con contenido bloqueado/desbloqueado y modal de planes.
+- Auth con Supabase (email/password) y mensajes de confirmacion de correo.
 
-Mini sistema real para **pagos con Stripe Checkout** que soporta:
+## Stack
+- Next.js 16 (App Router, TypeScript)
+- Stripe (Checkout + Webhooks)
+- Supabase (Auth + tablas app_users, orders, subscriptions, stripe_events)
+- pnpm
 
-* 💳 Pago **único (lifetime)**
-* 🔁 **Suscripción mensual**
-* 🔐 Acceso a **dashboard premium** según estado de pago
-* 🧾 Registro de órdenes, usuarios y suscripciones con **Prisma + SQLite**
-* 🔔 **Webhooks** para sincronizar pagos automáticamente
-
-Ideal como **MVP** y como proyecto de **portafolio/CV**.
-
----
-
-## Tabla de contenidos
-
-- [Stripe Payments Pro (Next.js + Stripe + Prisma)](#stripe-payments-pro-nextjs--stripe--prisma)
-  - [Tabla de contenidos](#tabla-de-contenidos)
-  - [🧱 Tecnologías](#-tecnologías)
-  - [📂 Estructura del proyecto](#-estructura-del-proyecto)
-  - [✅ Requisitos](#-requisitos)
-  - [🧰 Instalación](#-instalación)
-    - [0) Clonar](#0-clonar)
-    - [1) Habilitar pnpm (una vez)](#1-habilitar-pnpm-una-vez)
-    - [2) Instalar dependencias](#2-instalar-dependencias)
-  - [🔐 Variables de entorno](#-variables-de-entorno)
-    - [`.env` (Base de datos SQLite)](#env-base-de-datos-sqlite)
-    - [`.env.local` (Stripe + URLs)](#envlocal-stripe--urls)
-  - [🗄️ Prisma — Base de datos](#️-prisma--base-de-datos)
-  - [🔔 Stripe CLI — Webhooks en desarrollo](#-stripe-cli--webhooks-en-desarrollo)
-  - [🚀 Levantar la aplicación](#-levantar-la-aplicación)
-  - [🧪 Testear pagos (modo TEST)](#-testear-pagos-modo-test)
-  - [📄 Licencia](#-licencia)
-
----
-
-## 🧱 Tecnologías
-
-* **Next.js 15** (App Router, TypeScript)
-* **Stripe** (Checkout Sessions + Webhooks)
-* **Prisma ORM** + **SQLite**
-* **Tailwind CSS**
-* **pnpm**
-
----
-
-## 📂 Estructura del proyecto
-
-```text
+## Estructura relevante
+```
 src/
-└─ app/
-   ├─ api/
-   │  ├─ checkout/route.ts          # Crear checkout (pago único / suscripción)
-   │  ├─ me/route.ts                # Estado de acceso del usuario
-   │  └─ webhooks/stripe/route.ts   # Webhook seguro
-   ├─ dashboard/page.tsx            # Dashboard premium
-   └─ page.tsx                      # Landing + verificación rápida
-lib/
-├─ stripe.ts                        # Instancia de Stripe
-└─ db.ts                            # Prisma Client
-
-prisma/
-└─ schema.prisma                    # User, Order, Subscription, StripeEvent
+  app/
+    api/
+      checkout/route.ts        # Crear sesion de checkout
+      me/route.ts              # Estado de acceso por email
+      webhooks/stripe/route.ts # Webhook seguro Stripe
+    page.tsx                   # Landing + gating
+    dashboard/page.tsx         # Dashboard de estado
+  lib/
+    stripe.ts                  # Instancia Stripe
+    supabaseAdmin.ts           # Client service role
+    supabaseClient.ts          # Client publico
 ```
 
----
-
-## ✅ Requisitos
-
-* Node.js **18+** (ideal **20**)
-* **pnpm**
-* **Stripe CLI** instalado
-* Cuenta de **Stripe** en modo **TEST**
-* **Git**
-
----
-
-## 🧰 Instalación
-
-### 0) Clonar
-
-```bash
-git clone https://github.com/paololuna-luw/stripe-payments-pro
-cd stripe-payments-pro
+## Variables de entorno (Vercel / .env.local)
 ```
+STRIPE_SECRET_KEY=sk_test_xxx
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_xxx
+STRIPE_WEBHOOK_SECRET=whsec_xxx
+STRIPE_PRICE_ONE_TIME=price_xxx
+STRIPE_PRICE_SUB_MONTHLY=price_xxx
 
-### 1) Habilitar pnpm (una vez)
-
-```bash
-node -v
-corepack enable
-corepack prepare pnpm@10.18.3 --activate
-pnpm -v
-```
-
-### 2) Instalar dependencias
-
-```bash
-pnpm install
-```
-
----
-
-## 🔐 Variables de entorno
-
-Este proyecto usa **dos** archivos: `.env` y `.env.local`.
-
-### `.env` (Base de datos SQLite)
-
-**Windows PowerShell**:
-
-```ps1
-@'
-DATABASE_URL="file:./dev.db"
-'@ | Out-File -Encoding utf8 .env
-```
-
-**Manual** (cualquier SO):
-
-```env
-DATABASE_URL="file:./dev.db"
-```
-
-### `.env.local` (Stripe + URLs)
-
-```env
-STRIPE_SECRET_KEY=sk_test_xxxxxxxxxxxxxxxxx
-NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_xxxxxxxxxxxxxxx
-
-STRIPE_WEBHOOK_SECRET=whsec_xxxxxxxxxxxxxxx
-STRIPE_PRICE_ONE_TIME=price_xxxxxxxxxxxxxx
-STRIPE_PRICE_SUB_MONTHLY=price_xxxxxxxxxxxx
+NEXT_PUBLIC_SUPABASE_URL=https://xxxx.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=xxxx
+SUPABASE_SERVICE_ROLE_KEY=xxxx
 
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 ```
 
----
+## Tablas Supabase (resumen)
+- app_users: id (uuid refs auth.users), email, stripe_customer_id.
+- orders: id, user_id, amount, currency, status, mode, stripe_payment_intent_id, created_at.
+- subscriptions: id, user_id, stripe_subscription_id, status, current_period_end, created_at.
+- stripe_events: id, type, payload, created_at.
 
-## 🗄️ Prisma — Base de datos
+## Endpoints clave
+- POST `/api/checkout`: valida mode/email, upsert app_users, crea Checkout Session con metadata.
+- GET `/api/me?email=`: devuelve hasLifetimeAccess, hasActiveSubscription, orders, subscriptions.
+- POST `/api/webhooks/stripe`: valida firma, guarda evento, maneja:
+  - checkout.session.completed -> usuario + order
+  - customer.subscription.created/updated/deleted -> sync subscriptions
+  - invoice.paid -> order de suscripcion
+  - invoice.payment_failed -> subscription past_due
 
-Generar cliente:
-
+## Desarrollo
 ```bash
-pnpm prisma generate
-```
-
-Aplicar migraciones:
-
-```bash
-pnpm prisma migrate dev --name init
-```
-
-(Opcional) Prisma Studio:
-
-```bash
-pnpm prisma studio
-```
-
----
-
-## 🔔 Stripe CLI — Webhooks en desarrollo
-
-1. Iniciar sesión:
-
-```bash
-stripe login
-```
-
-2. Escuchar webhooks:
-
-```bash
-stripe listen --forward-to http://localhost:3000/api/webhooks/stripe
-```
-
-La CLI mostrará algo como:
-
-```
-Ready! Your webhook signing secret is whsec_XXXXXXXXXXXX
-```
-
-Copia ese valor en `.env.local`:
-
-```env
-STRIPE_WEBHOOK_SECRET=whsec_XXXXXXXXXXXX
-```
-
----
-
-## 🚀 Levantar la aplicación
-
-```bash
+pnpm install
 pnpm dev
 ```
-
-Rutas locales:
-
-* **[http://localhost:3000](http://localhost:3000)** → Landing + verificar email
-* **[http://localhost:3000/dashboard](http://localhost:3000/dashboard)** → Dashboard premium
-
----
-
-## 🧪 Testear pagos (modo TEST)
-
-1. Abre `http://localhost:3000`
-2. Ingresa un email (ej: `alguien@test.com`)
-3. Elige:
-
-   * **Pago único**, o
-   * **Suscripción mensual**
-4. Stripe abrirá el **Checkout** en modo test
-
-Tarjeta de prueba:
-
-```
-4242 4242 4242 4242
-CVC: 123
-Fecha: 12/34
+Stripe CLI (desarrollo):
+```bash
+stripe listen --forward-to http://localhost:3000/api/webhooks/stripe
+# copia el whsec en STRIPE_WEBHOOK_SECRET
 ```
 
-Después del pago:
+## Test de pagos (modo test)
+Tarjeta: 4242 4242 4242 4242 — CVC 123 — Fecha 12/34
+Flujo: iniciar sesion, elegir plan, pagar; tras el webhook el acceso se desbloquea segun compra/suscripcion.
 
-* El webhook registra **User**, **Order** y **Subscription**
-* En `/dashboard`, escribe el email para ver:
-
-  * Si tiene acceso
-  * Historial de pagos
-  * (Opcional) Debug JSON
-
----
-
-## 📄 Licencia
-
-Uso libre para aprendizaje y como base para otros proyectos/MVPs.
-
+## Despliegue en Vercel
+- Configura todas las env vars anteriores en Project Settings.
+- Deploy (repo GitHub conectado o `vercel --prod`).
+- En Stripe, apunta el webhook a `https://tuapp.vercel.app/api/webhooks/stripe` y usa el nuevo `whsec`.
