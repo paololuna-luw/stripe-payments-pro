@@ -123,9 +123,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ received: true });
     }
 
-    const rawCurrent =
-      (sub as Stripe.Subscription & { current_period_end?: number })
-        .current_period_end;
+    const rawCurrent = (sub as any)?.current_period_end as number | undefined;
     const currentPeriodEnd =
       typeof rawCurrent === "number"
         ? new Date(rawCurrent * 1000).toISOString()
