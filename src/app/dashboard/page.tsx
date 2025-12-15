@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
 type MeResponse = {
@@ -12,15 +12,15 @@ type MeResponse = {
     currency: string;
     status: string;
     mode: string;
-    stripePaymentIntentId: string;
-    createdAt: string;
+    stripe_payment_intent_id: string;
+    created_at: string;
   }[];
   subscriptions: {
     id: string;
     status: string;
-    stripeSubscriptionId: string;
-    currentPeriodEnd: string;
-    createdAt: string;
+    stripe_subscription_id: string;
+    current_period_end: string;
+    created_at: string;
   }[];
   error?: string;
 };
@@ -32,6 +32,11 @@ export default function Dashboard() {
   const [email, setEmail] = useState("");
   const [info, setInfo] = useState<MeResponse | null>(null);
   const [loading, setLoading] = useState(false);
+
+  const hasAccess = useMemo(
+    () => info?.hasLifetimeAccess || info?.hasActiveSubscription,
+    [info]
+  );
 
   async function load() {
     try {
@@ -50,149 +55,170 @@ export default function Dashboard() {
     }
   }
 
-  const hasAccess =
-    info?.hasLifetimeAccess || info?.hasActiveSubscription;
+  useEffect(() => {
+    const fromHome = sp.get("email");
+    if (fromHome) setEmail(fromHome);
+  }, [sp]);
 
   return (
-    <main className="min-h-dvh bg-slate-950 text-slate-50">
-      <header className="border-b border-slate-800">
-        <div className="mx-auto flex max-w-4xl items-center justify-between px-4 py-4">
-          <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-tr from-indigo-500 to-sky-400 text-xs font-bold">
-              SS
+    <main className="min-h-dvh bg-gradient-to-b from-slate-950 via-slate-900 to-black text-slate-50">
+      <header className="border-b border-slate-800/70">
+        <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-tr from-cyan-500 to-indigo-500 text-sm font-bold">
+              DB
             </div>
-            <span className="text-sm font-semibold tracking-tight">
-              Dashboard · Stripe Payments Pro
-            </span>
+            <div>
+              <p className="text-sm font-semibold">Dashboard Premium</p>
+              <p className="text-[11px] text-slate-400">
+                Estado de pagos y suscripciones
+              </p>
+            </div>
           </div>
-          <span className="text-xs text-slate-400">
-            Pagos y suscripciones (TEST)
-          </span>
+          {justPaid && (
+            <span className="rounded-full bg-emerald-500/10 px-3 py-1 text-[11px] font-semibold text-emerald-300">
+              Pago recibido (TEST)
+            </span>
+          )}
         </div>
       </header>
 
-      <section className="mx-auto max-w-4xl px-4 py-8">
-        <div className="space-y-4 rounded-2xl border border-slate-800 bg-slate-900/60 p-5 shadow">
-          <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+      <section className="mx-auto max-w-5xl px-6 py-8 space-y-5">
+        <div className="rounded-2xl border border-slate-800/70 bg-slate-900/70 p-5 shadow-lg shadow-cyan-500/5">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div>
-              <h1 className="text-xl font-semibold tracking-tight">
-                Estado de tu cuenta
-              </h1>
-              <p className="mt-1 text-xs text-slate-400">
-                Consulta tus pagos y acceso usando el email de checkout.
+              <h1 className="text-xl font-semibold">Revisa tu acceso</h1>
+              <p className="text-xs text-slate-400">
+                Usa el email asociado a tu pago o suscripcion.
               </p>
             </div>
-
-            {justPaid && (
-              <div className="mt-2 inline-flex items-center gap-2 rounded-full bg-green-500/10 px-3 py-1 text-[11px] font-medium text-green-300">
-                <span className="h-1.5 w-1.5 rounded-full bg-green-400" />
-                Pago recibido en Stripe (TEST)
-              </div>
-            )}
-          </div>
-
-          <div className="mt-4 flex flex-col gap-2 md:flex-row md:items-center">
-            <div className="flex-1">
+            <div className="flex flex-col gap-2 md:flex-row md:items-center">
               <input
                 type="email"
                 value={email}
-                placeholder="Email usado en el pago"
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-500/40"
+                placeholder="Email usado en Stripe"
+                className="w-64 rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-500/30"
               />
+              <button
+                onClick={load}
+                disabled={loading}
+                className="rounded-xl bg-cyan-500 px-4 py-2 text-xs font-semibold text-slate-950 shadow-sm transition hover:bg-cyan-400 disabled:opacity-60"
+              >
+                {loading ? "Cargando..." : "Ver estado"}
+              </button>
             </div>
-            <button
-              onClick={load}
-              disabled={loading}
-              className="mt-2 inline-flex items-center justify-center rounded-xl bg-sky-500 px-4 py-2 text-xs font-medium text-slate-950 shadow-sm transition hover:bg-sky-400 disabled:cursor-not-allowed disabled:opacity-60 md:mt-0"
-            >
-              {loading ? "Cargando..." : "Ver estado"}
-            </button>
           </div>
 
           {info && (
-            <div className="mt-4 space-y-4">
-              {/* Estado de acceso */}
+            <div className="mt-4 space-y-3">
               <div className="flex flex-wrap items-center gap-2">
-                <span className="text-xs font-medium text-slate-300">
-                  Acceso actual:
+                <span className="text-xs font-semibold text-slate-300">
+                  Acceso:
                 </span>
                 {hasAccess ? (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-3 py-1 text-[11px] font-medium text-emerald-300">
-                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-300" />
-                    Tienes acceso al contenido premium.
+                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-3 py-1 text-[11px] font-semibold text-emerald-300">
+                    Activo
                   </span>
                 ) : (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-3 py-1 text-[11px] font-medium text-amber-300">
-                    <span className="h-1.5 w-1.5 rounded-full bg-amber-300" />
-                    No se encontraron pagos activos para este email.
+                  <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-3 py-1 text-[11px] font-semibold text-amber-300">
+                    Bloqueado
                   </span>
                 )}
-
                 {info.hasLifetimeAccess && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-slate-100/5 px-3 py-1 text-[11px] text-slate-200">
+                  <span className="rounded-full bg-slate-100/10 px-3 py-1 text-[11px] text-slate-100">
                     Lifetime
                   </span>
                 )}
                 {info.hasActiveSubscription && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-sky-500/10 px-3 py-1 text-[11px] text-sky-200">
-                    Suscripción activa
+                  <span className="rounded-full bg-cyan-500/15 px-3 py-1 text-[11px] text-cyan-200">
+                    Suscripcion activa
                   </span>
                 )}
               </div>
-
-              {/* Lista de órdenes */}
-              <div className="space-y-2">
-                <h2 className="text-sm font-semibold text-slate-200">
-                  Últimos pagos
-                </h2>
-                {info.orders.length === 0 && (
-                  <p className="text-xs text-slate-400">
-                    No hay órdenes registradas para este email.
+              <div className="grid gap-3 md:grid-cols-2">
+                <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
+                  <p className="text-xs font-semibold text-slate-300">
+                    Ordenes
                   </p>
-                )}
-
-                {info.orders.length > 0 && (
-                  <div className="divide-y divide-slate-800 rounded-xl border border-slate-800 bg-slate-950/40">
-                    {info.orders.map((o) => (
-                      <div
-                        key={o.id}
-                        className="flex flex-col gap-2 px-4 py-3 text-xs md:flex-row md:items-center md:justify-between"
-                      >
-                        <div>
-                          <p className="font-medium text-slate-100">
-                            {o.mode === "subscription"
-                              ? "Suscripción"
-                              : "Pago único"}
+                  {info.orders.length === 0 && (
+                    <p className="text-xs text-slate-500">
+                      No hay ordenes registradas.
+                    </p>
+                  )}
+                  {info.orders.length > 0 && (
+                    <div className="mt-2 space-y-2">
+                      {info.orders.map((o) => (
+                        <div
+                          key={o.id}
+                          className="rounded-lg border border-slate-800 bg-slate-900/70 p-3 text-xs"
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="font-semibold text-slate-100">
+                              {o.mode === "subscription"
+                                ? "Suscripcion"
+                                : "Pago unico"}
+                            </span>
+                            <span className="text-[11px] uppercase text-emerald-300">
+                              {o.status}
+                            </span>
+                          </div>
+                          <p className="text-slate-300">
+                            {(o.amount / 100).toFixed(2)}{" "}
+                            {o.currency?.toUpperCase()}
                           </p>
-                          <p className="text-[11px] text-slate-400">
-                            Intento: {o.stripePaymentIntentId}
+                          <p className="text-[11px] text-slate-500">
+                            {new Date(o.created_at).toLocaleString()}
+                          </p>
+                          <p className="text-[11px] text-slate-500">
+                            PI: {o.stripe_payment_intent_id}
                           </p>
                         </div>
-                        <div className="flex flex-col items-start gap-1 text-right md:items-end">
-                          <span className="text-sm font-semibold">
-                            {(o.amount / 100).toFixed(2)} {o.currency.toUpperCase()}
-                          </span>
-                          <span className="text-[11px] text-slate-400">
-                            {new Date(o.createdAt).toLocaleString()}
-                          </span>
-                          <span className="text-[11px] uppercase tracking-wide text-emerald-300">
-                            {o.status}
-                          </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
+                  <p className="text-xs font-semibold text-slate-300">
+                    Suscripciones
+                  </p>
+                  {info.subscriptions.length === 0 && (
+                    <p className="text-xs text-slate-500">
+                      No hay suscripciones registradas.
+                    </p>
+                  )}
+                  {info.subscriptions.length > 0 && (
+                    <div className="mt-2 space-y-2">
+                      {info.subscriptions.map((s) => (
+                        <div
+                          key={s.id}
+                          className="rounded-lg border border-slate-800 bg-slate-900/70 p-3 text-xs"
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="font-semibold text-slate-100">
+                              {s.stripe_subscription_id}
+                            </span>
+                            <span className="text-[11px] uppercase text-cyan-200">
+                              {s.status}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-slate-500">
+                            Periodo hasta:{" "}
+                            {new Date(s.current_period_end).toLocaleString()}
+                          </p>
                         </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
 
-              {/* Debug para ti (queda profesional porque lo marcas como sección dev) */}
-              <details className="rounded-xl border border-slate-800 bg-slate-950/50 p-3 text-[11px] text-slate-400">
-                <summary className="cursor-pointer text-xs font-medium text-slate-200">
-                  Detalles técnicos (debug)
+              <details className="rounded-xl border border-slate-800 bg-slate-950/70 p-3 text-[11px] text-slate-300">
+                <summary className="cursor-pointer text-xs font-semibold text-slate-200">
+                  Debug JSON
                 </summary>
-                <pre className="mt-2 max-h-64 overflow-auto rounded-lg bg-slate-900 p-3 text-[10px]">
-                  {JSON.stringify(info, null, 2)}
+                <pre className="mt-2 max-h-64 overflow-auto rounded-lg bg-slate-900 p-3">
+{JSON.stringify(info, null, 2)}
                 </pre>
               </details>
             </div>

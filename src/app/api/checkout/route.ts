@@ -1,14 +1,16 @@
 import { NextResponse } from "next/server";
 import { stripe } from "@/lib/stripe";
+import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
 export async function POST(req: Request) {
   try {
     const body = await req.json().catch(() => ({}));
     const mode = body?.mode as "payment" | "subscription" | undefined;
     const email = body?.email as string | undefined;
+    const userId = body?.userId as string | undefined;
 
     if (!mode || !["payment", "subscription"].includes(mode)) {
-      return NextResponse.json({ error: "mode inválido" }, { status: 400 });
+      return NextResponse.json({ error: "mode invalido" }, { status: 400 });
     }
 
     if (!email) {
@@ -34,21 +36,34 @@ export async function POST(req: Request) {
       );
     }
 
+    await supabaseAdmin
+      .from("app_users")
+      .upsert(
+        [
+          {
+            id: userId ?? undefined,
+            email,
+          },
+        ],
+        { onConflict: "email" }
+      );
+
     const session = await stripe.checkout.sessions.create({
       mode,
       line_items: [{ price, quantity: 1 }],
-      success_url: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard?success=1`,
+      success_url: `${process.env.NEXT_PUBLIC_APP_URL}/?success=1`,
       cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/?canceled=1`,
       customer_email: email,
       metadata: {
         appUserEmail: email,
+        appUserId: userId ?? "",
         appMode: mode,
       },
     });
 
     if (!session.url) {
       return NextResponse.json(
-        { error: "No se generó URL de Checkout" },
+        { error: "No se genero URL de Checkout" },
         { status: 500 }
       );
     }
@@ -57,8 +72,8 @@ export async function POST(req: Request) {
   } catch (e: any) {
     console.error("Checkout error:", e);
     return NextResponse.json(
-      { error: e?.message ?? "Error inesperado" },
-      { status: 500 }
-    );
+        { error: e?.message ?? "Error inesperado" },
+        { status: 500 }
+      );
   }
 }
