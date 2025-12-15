@@ -150,10 +150,11 @@ export async function POST(req: Request) {
     const customerId =
       typeof inv.customer === "string" ? inv.customer : inv.customer?.id;
 
+    const rawPaymentIntent = (inv as any).payment_intent as string | { id?: string } | undefined;
     const paymentIntentId =
-      typeof inv.payment_intent === "string"
-        ? inv.payment_intent
-        : inv.payment_intent?.id;
+      typeof rawPaymentIntent === "string"
+        ? rawPaymentIntent
+        : rawPaymentIntent?.id;
 
     const amount = inv.amount_paid ?? inv.amount_due ?? 0;
     const currency = (inv.currency ?? "usd").toLowerCase();
